@@ -1,0 +1,11 @@
+services:
+  app:
+    environment:
+      APP_ENV: development
+      ENABLE_LOAD_TEST_ENDPOINTS: "true"
+      TTS_LOAD_TEST_BYPASS_RATE_LIMIT: "true"
+      STT_PROVIDER: mock
+      STUDENT_QUESTION_STT_PROVIDER: mock
+      TRANSLATION_PROVIDER: mock
+      TTS_PROVIDER: mock
+      MOCK_STT_AUDIO_DRIVEN: "true"

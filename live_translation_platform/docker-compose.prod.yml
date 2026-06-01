@@ -1,0 +1,111 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: live-translation-platform:prod
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      ENABLE_OPENAPI_DOCS: ${ENABLE_OPENAPI_DOCS:-false}
+      ENABLE_DEBUG_ENDPOINTS: ${ENABLE_DEBUG_ENDPOINTS:-false}
+      ENABLE_LOAD_TEST_ENDPOINTS: ${ENABLE_LOAD_TEST_ENDPOINTS:-false}
+      WEBSOCKET_AUTH_ENABLED: ${WEBSOCKET_AUTH_ENABLED:-true}
+      INTEGRATION_REQUIRE_HTTPS: ${INTEGRATION_REQUIRE_HTTPS:-true}
+      DATABASE_URL: ${COMPOSE_DATABASE_URL:-postgresql+psycopg://live_translation:${POSTGRES_PASSWORD}@postgres:5432/live_translation}
+      DATABASE_POOL_SIZE: ${DATABASE_POOL_SIZE:-5}
+      DATABASE_MAX_OVERFLOW: ${DATABASE_MAX_OVERFLOW:-10}
+      DATABASE_POOL_PRE_PING: ${DATABASE_POOL_PRE_PING:-true}
+      DATABASE_ECHO: ${DATABASE_ECHO:-false}
+      POSTGRES_REQUIRED_IN_PRODUCTION: ${POSTGRES_REQUIRED_IN_PRODUCTION:-true}
+      SQLITE_ALLOWED_IN_PRODUCTION: ${SQLITE_ALLOWED_IN_PRODUCTION:-false}
+      REDIS_ENABLED: ${REDIS_ENABLED:-true}
+      REDIS_URL: ${COMPOSE_REDIS_URL:-redis://redis:6379/0}
+      REDIS_PREFIX: ${REDIS_PREFIX:-live_translation}
+      REDIS_REQUIRED_IN_PRODUCTION: ${REDIS_REQUIRED_IN_PRODUCTION:-true}
+      REDIS_CONNECT_TIMEOUT_SECONDS: ${REDIS_CONNECT_TIMEOUT_SECONDS:-2}
+      REDIS_HEALTH_TIMEOUT_SECONDS: ${REDIS_HEALTH_TIMEOUT_SECONDS:-1}
+      REDIS_RATE_LIMIT_ENABLED: ${REDIS_RATE_LIMIT_ENABLED:-true}
+      REDIS_RATE_LIMIT_FAIL_CLOSED: ${REDIS_RATE_LIMIT_FAIL_CLOSED:-false}
+      REDIS_PUBSUB_ENABLED: ${REDIS_PUBSUB_ENABLED:-true}
+      REDIS_PUBSUB_FAIL_CLOSED: ${REDIS_PUBSUB_FAIL_CLOSED:-false}
+      REDIS_TTS_CACHE_ENABLED: ${REDIS_TTS_CACHE_ENABLED:-false}
+      # Local-dev Redis switch examples remain:
+      # REDIS_ENABLED: ${REDIS_ENABLED:-false}
+      # REDIS_REQUIRED_IN_PRODUCTION: ${REDIS_REQUIRED_IN_PRODUCTION:-false}
+      # REDIS_RATE_LIMIT_ENABLED: ${REDIS_RATE_LIMIT_ENABLED:-false}
+      # REDIS_PUBSUB_ENABLED: ${REDIS_PUBSUB_ENABLED:-false}
+      TTS_SHARED_CACHE_ENABLED: ${TTS_SHARED_CACHE_ENABLED:-true}
+      TTS_SHARED_CACHE_BACKEND: ${TTS_SHARED_CACHE_BACKEND:-disk}
+      TTS_SHARED_CACHE_DIR: ${TTS_SHARED_CACHE_DIR:-/app/tmp/tts_cache}
+      TTS_SHARED_CACHE_MAX_ITEMS: ${TTS_SHARED_CACHE_MAX_ITEMS:-1000}
+      TTS_SHARED_CACHE_TTL_SECONDS: ${TTS_SHARED_CACHE_TTL_SECONDS:-3600}
+      TTS_SHARED_CACHE_DISK_MAX_BYTES: ${TTS_SHARED_CACHE_DISK_MAX_BYTES:-1073741824}
+      TTS_AUDIO_URL_ENABLED: ${TTS_AUDIO_URL_ENABLED:-true}
+      TTS_AUDIO_URL_TTL_SECONDS: ${TTS_AUDIO_URL_TTL_SECONDS:-3600}
+      AZURE_STT_MAX_CONCURRENT_SESSIONS: ${AZURE_STT_MAX_CONCURRENT_SESSIONS:-}
+      ELEVENLABS_STT_MAX_CONCURRENT_SESSIONS: ${ELEVENLABS_STT_MAX_CONCURRENT_SESSIONS:-}
+      CARTESIA_STT_MAX_CONCURRENT_SESSIONS: ${CARTESIA_STT_MAX_CONCURRENT_SESSIONS:-}
+      AZURE_TRANSLATOR_MAX_REQUESTS_PER_SECOND: ${AZURE_TRANSLATOR_MAX_REQUESTS_PER_SECOND:-}
+      AZURE_TTS_MAX_REQUESTS_PER_SECOND: ${AZURE_TTS_MAX_REQUESTS_PER_SECOND:-}
+      ELEVENLABS_TTS_MAX_CONCURRENT_REQUESTS: ${ELEVENLABS_TTS_MAX_CONCURRENT_REQUESTS:-}
+      SMOKE_TEMP_DIR: ${SMOKE_TEMP_DIR:-/app/tmp/smoke}
+    ports:
+      - "8000:8000"
+    volumes:
+      - app_data:/app/data
+      - smoke_tmp:/app/tmp/smoke
+      - tts_cache:/app/tmp/tts_cache
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health/live', timeout=3).read()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-live_translation}
+      POSTGRES_USER: ${POSTGRES_USER:-live_translation}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-live_translation} -d $${POSTGRES_DB:-live_translation}"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Put Caddy, Nginx, or your platform load balancer in front for HTTPS.
+  # Keep app workers=1 until session/WebSocket state is moved to Redis/shared storage.
+
+volumes:
+  app_data:
+  smoke_tmp:
+  tts_cache:
+  postgres_data:
+  redis_data:

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Translation Captions Client</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 900px; }
+    label { display: block; margin-top: 0.75rem; }
+    input, select, button { font: inherit; padding: 0.45rem; width: 100%; box-sizing: border-box; }
+    button { width: auto; margin-top: 1rem; }
+    #caption { margin-top: 1.5rem; padding: 1rem; border: 1px solid #ccd; min-height: 4rem; }
+    #log { margin-top: 1rem; white-space: pre-wrap; font-size: 0.9rem; color: #444; }
+  </style>
+</head>
+<body>
+  <h1>Captions Client</h1>
+  <label>Captions WebSocket URL from student-token response
+    <input id="wsUrl" placeholder="wss://python-service/ws/v1/lessons/{lesson_id}/captions?token=...">
+  </label>
+  <label>Scoped access token (optional if URL already has token)
+    <input id="accessToken" placeholder="short-lived captions:read token">
+  </label>
+  <label>Language
+    <select id="language">
+      <option value="original">Russian original</option>
+      <option value="kk">Kazakh</option>
+      <option value="uz">Uzbek</option>
+      <option value="zh-Hans">Chinese</option>
+      <option value="all">Show all</option>
+    </select>
+  </label>
+  <button id="connect">Connect</button>
+  <div id="caption"></div>
+  <div id="log"></div>
+  <script src="./captions-client.js"></script>
+</body>
+</html>

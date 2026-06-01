@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Usage{% endblock %}
+{% block content %}
+<section class="toolbar compact">
+  <div>
+    <h1>Usage / Cost Analytics</h1>
+    <p class="muted">Costs are estimates. Configure pricing before financial decisions.</p>
+  </div>
+  <button class="primary" id="loadDefaultPricing" type="button">Load placeholder pricing</button>
+</section>
+
+<section class="dashboard-grid">
+  <article class="metric-card">
+    <h2>Total Audio</h2>
+    <strong>{{ summary.audio_minutes }} min</strong>
+  </article>
+  <article class="metric-card">
+    <h2>Translation Characters</h2>
+    <strong>{{ summary.translation_characters }}</strong>
+  </article>
+  <article class="metric-card">
+    <h2>Estimated Cost</h2>
+    <strong>{{ summary.total_estimated_cost }} {{ summary.currency }}</strong>
+  </article>
+  <article class="metric-card">
+    <h2>Captions</h2>
+    <strong>{{ summary.captions }}</strong>
+  </article>
+</section>
+
+<section class="panel">
+  <h2>Pricing</h2>
+  <div class="table-wrap">
+    <table class="results-table">
+      <thead><tr><th>Type</th><th>Provider</th><th>Unit</th><th>Price</th><th>Currency</th><th>Note</th></tr></thead>
+      <tbody>
+        {% for item in pricing %}
+          <tr>
+            <td>{{ item.provider_type }}</td>
+            <td>{{ item.provider_name }}</td>
+            <td>{{ item.unit }}</td>
+            <td>{{ item.price_per_unit }}</td>
+            <td>{{ item.currency }}</td>
+            <td>{{ item.source_note }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="6">No pricing configured.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Usage Records</h2>
+  <div class="table-wrap">
+    <table class="results-table">
+      <thead><tr><th>Provider</th><th>Metric</th><th>Quantity</th><th>Scope</th><th>Created</th></tr></thead>
+      <tbody>
+        {% for record in records %}
+          <tr>
+            <td>{{ record.provider_type }} / {{ record.provider_name }}</td>
+            <td>{{ record.metric_name }}</td>
+            <td>{{ record.quantity }} {{ record.unit }}</td>
+            <td>{{ record.lesson_id or record.smoke_test_id or record.comparison_id or "global" }}</td>
+            <td>{{ record.created_at }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="5">No usage records yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+<div id="toast" class="toast" hidden></div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/usage.js"></script>
+{% endblock %}

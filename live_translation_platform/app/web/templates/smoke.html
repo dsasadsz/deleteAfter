@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block title %}Smoke Test{% endblock %}
+{% block content %}
+<section class="toolbar compact">
+  <div>
+    <h1>Smoke Test</h1>
+    <p class="muted">Manual E2E check for audio, STT, translation, CaptionHub, WebSocket, and UI latency.</p>
+  </div>
+  <a class="button secondary" href="/dashboard">Dashboard</a>
+</section>
+
+<section class="split">
+  <article class="panel">
+    <h2>Run</h2>
+    <form id="smokeForm">
+      <label class="field">
+        Lesson
+        <select name="lesson_id" id="smokeLesson">
+          <option value="">Create temporary smoke lesson</option>
+          {% for lesson in lessons %}
+            <option value="{{ lesson.lesson_id }}">{{ lesson.title }} / {{ lesson.lesson_id }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="field">
+        Audio source
+        <select name="audio_mode" id="audioMode">
+          <option value="mock_chunks">Mock generated audio chunks</option>
+          <option value="wav_upload">Uploaded WAV file</option>
+          <option value="fake_rtms">Existing fake RTMS injection</option>
+          <option value="direct_ws">Browser WS direct simulation</option>
+        </select>
+      </label>
+      <label class="field" id="uploadField" hidden>
+        WAV file
+        <input type="file" id="audioFile" accept=".wav,audio/wav,audio/x-wav">
+      </label>
+      <label class="field" id="streamingModeField" hidden>
+        WAV streaming
+        <select name="streaming_mode" id="streamingMode">
+          <option value="realtime_stream">realtime_stream</option>
+          <option value="fast_upload">fast_upload</option>
+        </select>
+      </label>
+      <label class="field">
+        STT provider
+        <select name="stt_provider" id="sttProvider">
+          <option value="mock">mock</option>
+          <option value="elevenlabs">elevenlabs</option>
+          <option value="azure">azure</option>
+          <option value="cartesia">cartesia</option>
+        </select>
+      </label>
+      <label class="field">
+        Translator
+        <select name="translation_provider" id="translationProvider">
+          <option value="mock">mock</option>
+          <option value="azure">azure</option>
+        </select>
+      </label>
+      <label class="field">
+        Target languages
+        <input type="text" id="targetLanguages" value="kk,uz,zh-Hans">
+      </label>
+      <label class="field">
+        Glossary
+        <select id="smokeGlossary">
+          <option value="">Glossary off</option>
+          {% for glossary in glossaries %}
+            <option value="{{ glossary.id }}">{{ glossary.name }} / {{ glossary.terms_count }} terms</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label><input type="checkbox" id="smokeGlossaryEnabled"> Enable glossary</label>
+      <button class="primary" type="submit">Run Smoke Test</button>
+    </form>
+  </article>
+
+  <article class="panel">
+    <h2>Providers</h2>
+    <dl>
+      <dt>mock STT</dt><dd><span class="ok">ready</span></dd>
+      <dt>ElevenLabs</dt><dd data-provider="elevenlabs">{% if provider_status.stt.elevenlabs.ready %}<span class="ok">ready</span>{% else %}<span class="late">missing {{ provider_status.stt.elevenlabs.missing | join(", ") }}</span>{% endif %}</dd>
+      <dt>Azure STT</dt><dd data-provider="azure-stt">{% if provider_status.stt.azure.ready %}<span class="ok">ready</span>{% else %}<span class="late">missing {{ provider_status.stt.azure.missing | join(", ") }}</span>{% endif %}</dd>
+      <dt>Cartesia STT</dt><dd data-provider="cartesia-stt">{% if provider_status.stt.cartesia.ready %}<span class="ok">ready</span>{% else %}<span class="late">missing {{ provider_status.stt.cartesia.missing | join(", ") }}</span>{% endif %}</dd>
+      <dt>mock translator</dt><dd><span class="ok">ready</span></dd>
+      <dt>Azure</dt><dd data-provider="azure">{% if provider_status.translation.azure.ready %}<span class="ok">ready</span>{% else %}<span class="late">missing {{ provider_status.translation.azure.missing | join(", ") }}</span>{% endif %}</dd>
+    </dl>
+    <div id="uploadStatus" class="muted"></div>
+  </article>
+</section>
+
+<section class="split">
+  <article class="panel">
+    <h2>Live Results</h2>
+    <dl>
+      <dt>status</dt><dd id="smokeStatus">idle</dd>
+      <dt>smoke_test_id</dt><dd id="smokeId">none</dd>
+      <dt>lesson_id</dt><dd id="resultLessonId">none</dd>
+      <dt>raw original</dt><dd id="originalText"></dd>
+      <dt>normalized</dt><dd id="normalizedText"></dd>
+      <dt>kk</dt><dd id="translationKk"></dd>
+      <dt>uz</dt><dd id="translationUz"></dd>
+      <dt>zh-Hans</dt><dd id="translationZh"></dd>
+    </dl>
+    <h2>Latency</h2>
+    <dl>
+      <dt>first partial</dt><dd id="latFirstPartial">0 ms</dd>
+      <dt>STT final</dt><dd id="latSttFinal">0 ms</dd>
+      <dt>translation</dt><dd id="latTranslation">0 ms</dd>
+      <dt>server total</dt><dd id="latTotalServer">0 ms</dd>
+      <dt>client receive</dt><dd id="latClientReceive">0 ms</dd>
+      <dt>estimated usage</dt><dd id="smokeUsage">not calculated</dd>
+    </dl>
+    <h2>Audio Streaming</h2>
+    <dl>
+      <dt>mode</dt><dd id="metricStreamingMode">none</dd>
+      <dt>audio duration</dt><dd id="metricAudioDuration">0 ms</dd>
+      <dt>chunks</dt><dd id="metricChunks">0</dd>
+      <dt>chunk size</dt><dd id="metricChunkMs">0 ms</dd>
+      <dt>send elapsed</dt><dd id="metricElapsedSend">0 ms</dd>
+      <dt>realtime factor</dt><dd id="metricRealtimeFactor">0</dd>
+    </dl>
+  </article>
+  <article class="panel">
+    <h2>Events</h2>
+    <div class="log" id="smokeLog"></div>
+  </article>
+</section>
+
+<section class="panel">
+  <h2>Latest Smoke Tests</h2>
+  <div class="caption-list">
+    {% for run in smoke_runs %}
+      <div class="caption-item">
+        <strong>{{ run.id }}</strong>
+        <p>{{ run.status }} / {{ run.audio_mode }} / {{ run.stt_provider }} + {{ run.translation_provider }}</p>
+      </div>
+    {% else %}
+      <p class="muted">No smoke tests yet.</p>
+    {% endfor %}
+  </div>
+</section>
+
+<div id="toast" class="toast" hidden></div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/smoke.js"></script>
+{% endblock %}

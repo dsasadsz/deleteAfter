@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Live Translation Platform{% endblock %}</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">Live Translation</a>
+    <nav>
+      <a href="/">Lessons</a>
+      <a href="/dashboard">Dashboard</a>
+      <a href="/smoke">Smoke</a>
+      <a href="/compare">Compare</a>
+      <a href="/glossaries">Glossaries</a>
+      <a href="/usage">Usage</a>
+      <a href="/real-test">Real Test</a>
+      <a href="/load-tests/local">Local Load</a>
+    </nav>
+  </header>
+  <main class="page">
+    {% block content %}{% endblock %}
+  </main>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

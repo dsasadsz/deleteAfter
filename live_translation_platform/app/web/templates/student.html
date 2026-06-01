@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+{% block title %}Student {{ lesson.lesson_id }}{% endblock %}
+{% block content %}
+<section class="student-layout" data-lesson-id="{{ lesson.lesson_id }}" data-mode="{{ lesson.mode }}" data-audio-source="{{ lesson.audio_source }}">
+  <section class="video-shell">
+    <div class="video-area" id="videoArea" data-join-url="{{ lesson.zoom_join_url if lesson.mode == "zoom" else "" }}">
+      <div class="video-topline">
+        <span>Zoom video: <strong id="zoomVideoStatus">{{ "mock" if lesson.mode == "mock" else "not joined" }}</strong></span>
+        <span id="videoClock">00:00</span>
+      </div>
+      <div id="meetingSDKElement" class="meeting-sdk-element" hidden></div>
+      <div class="video-center">
+        <div class="play-mark"></div>
+        <div>
+          <strong>{{ "Mock video placeholder" if lesson.mode == "mock" else "Zoom Meeting SDK embed" }}</strong>
+          <p id="videoMessage">{{ "Mock player" if lesson.mode == "mock" else "Click Join Zoom video to mount the embedded meeting. Captions continue over Python WebSocket." }}</p>
+          {% if lesson.mode == "zoom" %}
+            <div class="actions">
+              <button class="primary" id="joinZoomVideo" type="button">Join Zoom video</button>
+              <a class="button secondary" href="{{ lesson.zoom_join_url }}" target="_blank" rel="noreferrer">Open Zoom fallback</a>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+      <div class="caption-overlay" id="captionOverlay">Waiting for captions</div>
+    </div>
+    <section class="caption-below panel" id="captionBelow" hidden>
+      <h2>Captions</h2>
+      <pre id="captionBelowText">Waiting for captions</pre>
+    </section>
+    <div class="latency-strip">
+      <span>Caption lag</span>
+      <meter id="lagMeter" min="0" max="2500" value="0"></meter>
+      <strong id="totalLatency">0 ms</strong>
+    </div>
+  </section>
+
+  <aside class="caption-panel">
+    <div class="status-row">
+      <span id="connectionStatus" class="status">connecting</span>
+      <span>{{ lesson.mode }} / {{ lesson.stt_provider }} / {{ lesson.translation_provider }}</span>
+    </div>
+    <div class="status-row">
+      <span class="mode">video source</span>
+      <span>{{ "mock" if lesson.mode == "mock" else "Zoom Meeting SDK" }}</span>
+    </div>
+    <div class="status-row">
+      <span class="mode">caption audio</span>
+      <span>{{ "Teacher browser microphone" if lesson.audio_source == "browser_ws" else lesson.audio_source }}</span>
+    </div>
+    {% if settings.rtms_ui_enabled or settings.rtms_experimental_enabled %}
+    <div class="status-row">
+      <span class="mode">RTMS</span>
+      <span id="rtmsDebugBadge">{{ lesson.rtms_status }}</span>
+    </div>
+    {% endif %}
+    <div class="status-row">
+      <span class="mode">source</span>
+      <span id="captionSourceBadge">audio_source: {{ lesson.pipeline_audio_source or lesson.audio_source }}</span>
+    </div>
+    {% if lesson.audio_source == "browser_ws" %}
+      <div class="zoom-note">Browser mic mode: captions use teacher website microphone; Zoom video still comes from Meeting SDK.</div>
+    {% endif %}
+    <div class="status-row">
+      <span class="mode">latency</span>
+      <span id="captionLatencyBreakdown">waiting</span>
+    </div>
+    <div class="status-row">
+      <span class="mode">glossary</span>
+      <span id="glossaryDebugBadge">{{ lesson.glossary_id or "off" }}</span>
+    </div>
+    <div class="status-row">
+      <span class="mode">after lesson</span>
+      <a href="/lessons/{{ lesson.lesson_id }}/transcript">Open transcript</a>
+    </div>
+    {% if lesson.mode == "zoom" %}
+      <div class="zoom-note">
+        <strong>{{ lesson.zoom_topic }}</strong>
+        <a href="{{ lesson.zoom_join_url }}" target="_blank" rel="noreferrer">Join Zoom meeting</a>
+      </div>
+    {% endif %}
+    <label class="field">
+      <span>Caption placement</span>
+      <select id="captionPlacement">
+        <option value="overlay">Overlay video</option>
+        <option value="below">Below video</option>
+      </select>
+    </label>
+    <label class="field">
+      <span>Language</span>
+      <select id="languageSelector">
+        <option value="all">Show all</option>
+        <option value="original">Russian original</option>
+        <option value="kk">Kazakh</option>
+        <option value="uz">Uzbek</option>
+        <option value="zh-Hans">Chinese</option>
+      </select>
+    </label>
+    <section class="panel student-tts-panel" data-lesson-id="{{ lesson.lesson_id }}" data-autoplay-default="{{ 'true' if settings.tts_autoplay_default else 'false' }}" data-volume-default="{{ settings.tts_volume_default }}" data-queue-mode="{{ settings.tts_queue_mode }}" data-ducking-enabled="{{ 'true' if settings.tts_ducking_enabled else 'false' }}" data-ducking-level="{{ settings.tts_ducking_level }}" data-ducking-restore-delay-ms="{{ settings.tts_ducking_restore_delay_ms }}">
+      <h2>Voice translation</h2>
+      <div class="status-row">
+        <span class="mode">TTS</span>
+        <span id="ttsStatus">checking</span>
+      </div>
+      {% if settings.tts_provider == "mock" %}
+        <p class="muted" id="ttsMockNote">Mock TTS is test audio, not real voice.</p>
+      {% endif %}
+      <p class="muted" id="ttsLiveBacklogNote">TTS reads live captions only. Backlog: last 5 seconds.</p>
+      <label class="field inline-field">
+        <input id="ttsEnabled" type="checkbox">
+        <span>Enable voice translation</span>
+      </label>
+      <label class="field inline-field">
+        <input id="ttsAutoplay" type="checkbox" {{ 'checked' if settings.tts_autoplay_default else '' }}>
+        <span>Autoplay final captions</span>
+      </label>
+      <label class="field">
+        <span>TTS language</span>
+        <select id="ttsLanguage">
+          <option value="kk" {{ 'selected' if settings.tts_default_language == 'kk' else '' }}>Kazakh</option>
+          <option value="uz" {{ 'selected' if settings.tts_default_language == 'uz' else '' }}>Uzbek</option>
+          <option value="zh-Hans" {{ 'selected' if settings.tts_default_language == 'zh-Hans' else '' }}>Chinese</option>
+          <option value="ru" {{ 'selected' if settings.tts_default_language == 'ru' else '' }}>Russian</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>TTS provider</span>
+        <select id="ttsProvider">
+          <option value="azure">Azure</option>
+          <option value="elevenlabs">ElevenLabs experimental</option>
+          <option value="mock">Mock</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Voice</span>
+        <select id="ttsVoice"></select>
+      </label>
+      <div class="status-row"><span class="mode">voice</span><span id="ttsVoiceStatus">checking</span></div>
+      <label class="field">
+        <span>Queue mode</span>
+        <select id="ttsQueueMode">
+          <option value="sequential" {{ 'selected' if settings.tts_queue_mode != 'latest_only' else '' }}>Sequential</option>
+          <option value="latest_only" {{ 'selected' if settings.tts_queue_mode == 'latest_only' else '' }}>Latest only</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Volume</span>
+        <input id="ttsVolume" type="range" min="0" max="1" step="0.05" value="{{ settings.tts_volume_default }}">
+      </label>
+      <div class="actions">
+        <button class="secondary" id="ttsPlayLatest" type="button">Play latest</button>
+        <button class="danger" id="ttsStop" type="button">Stop</button>
+      </div>
+      <label class="field inline-field muted">
+        <input id="ttsDuckingEnabled" type="checkbox" {{ 'checked' if settings.tts_ducking_enabled else '' }}>
+        <span>Enable ducking - Lower Zoom audio during TTS</span>
+      </label>
+      <div class="status-row"><span class="mode">Original audio:</span><span id="ttsDuckingStatus">unavailable</span></div>
+      <p class="muted" id="ttsDuckingFallback">Lower Zoom volume manually or mute original audio while TTS is playing.</p>
+      <div class="status-row"><span class="mode">queued</span><span id="ttsQueued">0</span></div>
+      <div class="status-row"><span class="mode">requests</span><span id="ttsRequests">0</span></div>
+      <div class="status-row"><span class="mode">errors</span><span id="ttsErrors">0</span></div>
+      <div class="status-row"><span class="mode">cache hits</span><span id="ttsCacheHits">0</span></div>
+      <div class="status-row"><span class="mode">latency</span><span id="ttsLatency">0 ms</span></div>
+      <div class="status-row"><span class="mode">last error</span><span id="ttsLastError">none</span></div>
+    </section>
+    <section class="partial-box">
+      <h2>Live partial</h2>
+      <p id="partialCaption">...</p>
+    </section>
+    <section>
+      <div class="card-row">
+        <h2>Final captions</h2>
+        <span class="muted" id="visibleCaptionCount">0 shown</span>
+      </div>
+      <div class="actions">
+        <a class="button secondary" href="/lessons/{{ lesson.lesson_id }}/transcript">Show full transcript</a>
+        <button class="secondary" id="showCaptionHistory" type="button" hidden>Show history</button>
+      </div>
+      <div class="caption-list" id="finalCaptions"></div>
+    </section>
+    <section class="panel student-questions-panel" data-lesson-id="{{ lesson.lesson_id }}" data-audio-enabled="{{ 'true' if settings.student_question_audio_enabled else 'false' }}" data-max-audio-bytes="{{ settings.student_question_max_audio_bytes }}" data-max-duration-seconds="{{ settings.student_question_max_duration_seconds }}">
+      <h2>Ask teacher</h2>
+      <div class="status-row">
+        <span class="mode">question flow</span>
+        <span id="studentQuestionStatus">ready</span>
+      </div>
+      <label class="field">
+        <span>Question language</span>
+        <select id="studentQuestionLanguage">
+          <option value="kk">Kazakh</option>
+          <option value="uz">Uzbek</option>
+          <option value="zh-Hans">Chinese</option>
+          <option value="ru">Russian</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Your name</span>
+        <input id="studentQuestionName" type="text" placeholder="Student">
+      </label>
+      <label class="field">
+        <span>Text question</span>
+        <textarea id="studentQuestionText" rows="4" placeholder="Type your question for the teacher"></textarea>
+      </label>
+      <div class="actions">
+        <button class="primary" id="sendStudentTextQuestion" type="button">Send question</button>
+        <button class="secondary" id="startStudentVoiceQuestion" type="button">Start voice question</button>
+        <button class="danger" id="stopStudentVoiceQuestion" type="button" disabled>Stop/send question</button>
+      </div>
+      <p class="muted" id="studentVoiceQuestionStatus">Voice questions use a short start/stop recording.</p>
+      <p><strong>Recognized:</strong> <span id="studentQuestionRecognized">none</span></p>
+      <div class="caption-list" id="studentQuestionList"></div>
+    </section>
+  </aside>
+</section>
+{% endblock %}
+{% block scripts %}
+<script src="/static/zoom_placeholder.js"></script>
+<script src="https://source.zoom.us/3.13.2/lib/vendor/react.min.js"></script>
+<script src="https://source.zoom.us/3.13.2/lib/vendor/react-dom.min.js"></script>
+<script src="https://source.zoom.us/3.13.2/zoom-meeting-embedded-3.13.2.min.js"></script>
+<script src="/static/zoom_meeting.js"></script>
+<script src="/static/captions.js"></script>
+<script src="/static/student_tts.js"></script>
+<script src="/static/student_questions.js"></script>
+{% endblock %}

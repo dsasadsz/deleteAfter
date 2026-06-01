@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Lessons{% endblock %}
+{% block content %}
+<section class="toolbar">
+  <div>
+    <h1>Live lessons</h1>
+    <p class="muted">Zoom video + teacher browser microphone audio + live captions.</p>
+  </div>
+  <div class="actions">
+    <button class="primary" id="createMock">Create Mock lesson</button>
+    <button class="secondary" id="createZoom">Create Zoom lesson</button>
+    <a class="button secondary" href="/real-test">Real local test: Zoom video + Browser Mic captions</a>
+  </div>
+</section>
+
+<section class="lesson-grid" id="lessonGrid">
+  {% for lesson in lessons %}
+    <article class="lesson-card">
+      <div class="card-row">
+        <span class="status {{ lesson.status }}">{{ lesson.status }}</span>
+        <span class="mode">{{ lesson.mode }}</span>
+      </div>
+      <h2>{{ lesson.title }}</h2>
+      <dl>
+        <dt>lesson_id</dt><dd>{{ lesson.lesson_id }}</dd>
+        <dt>meeting_id</dt><dd>{{ lesson.zoom_meeting_id }}</dd>
+        <dt>providers</dt><dd>{{ lesson.stt_provider }} / {{ lesson.translation_provider }}</dd>
+      </dl>
+      <div class="link-row">
+        <a href="/teacher/{{ lesson.lesson_id }}">Teacher</a>
+        <a href="/student/{{ lesson.lesson_id }}">Student</a>
+        <a href="/dashboard">Dashboard</a>
+      </div>
+    </article>
+  {% else %}
+    <div class="empty">No lessons yet.</div>
+  {% endfor %}
+</section>
+<div id="toast" class="toast" hidden></div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/app.js"></script>
+{% endblock %}

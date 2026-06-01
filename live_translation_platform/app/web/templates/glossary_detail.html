@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Glossary {{ glossary.name }}{% endblock %}
+{% block content %}
+<section class="toolbar compact">
+  <div>
+    <h1>{{ glossary.name }}</h1>
+    <p class="muted">{{ glossary.description or "Terminology glossary" }}</p>
+  </div>
+  <a class="button secondary" href="/glossaries">All glossaries</a>
+</section>
+
+<section class="split">
+  <article class="panel">
+    <h2>Add Term</h2>
+    <form id="termCreateForm" data-glossary-id="{{ glossary.id }}">
+      <label class="field">Source <input id="termSource" type="text" value="си шарп"></label>
+      <label class="field">Canonical <input id="termCanonical" type="text" value="C#"></label>
+      <label class="field">Aliases <input id="termAliases" type="text" value="C sharp,сишарп"></label>
+      <label class="field">Translations JSON <input id="termTranslations" type="text" value='{"kk":"C#","uz":"C#","zh-Hans":"C#"}'></label>
+      <label class="field">Match type
+        <select id="termMatchType">
+          <option value="phrase">phrase</option>
+          <option value="exact">exact</option>
+          <option value="regex">regex</option>
+        </select>
+      </label>
+      <label class="field">Priority <input id="termPriority" type="text" value="50"></label>
+      <button class="secondary" type="submit">Add term</button>
+    </form>
+  </article>
+  <article class="panel">
+    <h2>Import / Export</h2>
+    <textarea id="glossaryJson" rows="10" style="width:100%">{{ {"glossary": glossary, "terms": terms} | tojson }}</textarea>
+    <p class="muted">JSON export is intentionally plain so it can be copied into docs or reviewed by a teacher.</p>
+  </article>
+</section>
+
+<section class="panel">
+  <h2>Terms</h2>
+  <div class="table-wrap">
+    <table class="results-table">
+      <thead>
+        <tr>
+          <th>Enabled</th>
+          <th>Source</th>
+          <th>Canonical</th>
+          <th>Aliases</th>
+          <th>Translations</th>
+          <th>Type</th>
+          <th>Priority</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for term in terms %}
+          <tr>
+            <td>{{ "yes" if term.enabled else "no" }}</td>
+            <td>{{ term.source }}</td>
+            <td>{{ term.canonical }}</td>
+            <td>{{ term.aliases | join(", ") }}</td>
+            <td><pre>{{ term.translations | tojson }}</pre></td>
+            <td>{{ term.match_type }}</td>
+            <td>{{ term.priority }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="7">No terms yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+<div id="toast" class="toast" hidden></div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/glossaries.js"></script>
+{% endblock %}

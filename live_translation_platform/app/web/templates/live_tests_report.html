@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Live Mic Baseline Report{% endblock %}
+{% block content %}
+<section class="toolbar compact">
+  <div>
+    <h1>Live Mic Baseline Report</h1>
+    <p class="muted">Latency and quality summary for browser mic test runs.</p>
+  </div>
+  <a class="button secondary" href="/live-tests">Back to live tests</a>
+</section>
+
+<section class="panel">
+  <h2>Filters</h2>
+  <form method="get" class="grid-form">
+    <label class="field">lesson_id <input name="lesson_id" value="{{ filters.lesson_id }}"></label>
+    <label class="field">stt_provider <input name="stt_provider" value="{{ filters.stt_provider }}"></label>
+    <label class="field">translation_provider <input name="translation_provider" value="{{ filters.translation_provider }}"></label>
+    <label class="field">test_phrase_label <input name="test_phrase_label" value="{{ filters.test_phrase_label }}"></label>
+    <button class="secondary" type="submit">Apply filters</button>
+  </form>
+</section>
+
+<section class="panel">
+  <h2>Recommended Settings</h2>
+  {% if report.recommended_settings %}
+  <pre>{{ report.recommended_settings }}</pre>
+  <p>{{ report.recommendation_reason }}</p>
+  {% else %}
+  <p class="muted">{{ report.recommendation_reason }}</p>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2>Runs</h2>
+  <table>
+    <thead><tr><th>Run</th><th>Provider</th><th>Settings</th><th>Total</th><th>Final</th><th>Dropped</th><th>Quality</th></tr></thead>
+    <tbody>
+      {% for row in report.rows %}
+      <tr>
+        <td>{{ row.id }}</td>
+        <td>{{ row.stt_provider }} + {{ row.translation_provider }}</td>
+        <td>{{ row.chunk_ms }}ms / silence {{ row.silence_commit_ms }} / max {{ row.max_segment_duration_ms }}</td>
+        <td>{{ row.total_latency_ms or "n/a" }}</td>
+        <td>{{ row.final_latency_ms or "n/a" }}</td>
+        <td>{{ row.chunks_dropped }}</td>
+        <td>{{ row.transcript_quality or "unrated" }} / {{ row.translation_quality or "unrated" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

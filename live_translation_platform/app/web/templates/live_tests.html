@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Live Browser Mic Test Matrix{% endblock %}
+{% block content %}
+<section class="toolbar compact">
+  <div>
+    <h1>Live Browser Mic Test Matrix</h1>
+    <p class="muted">Benchmark the primary browser mic path. This tool does not record audio; it saves only caption text, latency, quality notes, and settings.</p>
+  </div>
+  <a class="button secondary" href="/live-tests/report">Baseline report</a>
+</section>
+
+<section class="split">
+  <article class="panel">
+    <h2>Start Run</h2>
+    <form id="liveTestForm">
+      <label class="field">Existing lesson
+        <select id="liveLessonId" required>
+          {% for lesson in lessons %}
+          <option value="{{ lesson.lesson_id }}">{{ lesson.title }} / {{ lesson.lesson_id }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="field">STT provider
+        <select id="liveSttProvider">
+          <option value="mock">mock</option>
+          <option value="elevenlabs">elevenlabs</option>
+          <option value="azure">azure</option>
+          <option value="cartesia">cartesia</option>
+        </select>
+      </label>
+      <label class="field">Translator
+        <select id="liveTranslator">
+          <option value="mock">mock</option>
+          <option value="azure">azure</option>
+        </select>
+      </label>
+      <label class="field">chunk_ms
+        <select id="liveChunkMs"><option>50</option><option selected>100</option><option>200</option></select>
+      </label>
+      <label class="field">silence_commit_ms
+        <select id="liveSilenceMs"><option>700</option><option selected>1000</option><option>1500</option></select>
+      </label>
+      <label class="field">max_segment_duration_ms
+        <select id="liveMaxSegmentMs"><option>4000</option><option selected>6000</option><option>8000</option></select>
+      </label>
+      <label class="field">Partials enabled
+        <select id="livePartials"><option value="true" selected>true</option><option value="false">false</option></select>
+      </label>
+      <label class="field">Phrase label
+        <select id="livePhraseLabel">
+          <option>short phrase</option>
+          <option>technical terms phrase</option>
+          <option>long continuous speech</option>
+        </select>
+      </label>
+      <label class="field">Expected text <textarea id="liveExpectedText" rows="3">Здравствуйте, это проверка живого микрофона.</textarea></label>
+      <button class="primary" type="submit">Start live test run</button>
+    </form>
+  </article>
+
+  <article class="panel">
+    <h2>Suggested Phrases</h2>
+    <p><strong>Short:</strong> Здравствуйте, это проверка живого микрофона.</p>
+    <p><strong>Technical:</strong> Сегодня мы изучим C#, SQL, ASP.NET и Entity Framework.</p>
+    <p><strong>Long:</strong> Сегодня мы разберем массивы, циклы, классы и методы, а затем решим практическую задачу по программированию.</p>
+    <div id="liveRunActions" hidden>
+      <h3>Active Run</h3>
+      <p id="liveActiveRun"></p>
+      <div class="actions">
+        <a class="button secondary" id="liveTeacherUrl" href="#" target="_blank">Open teacher page</a>
+        <a class="button secondary" id="liveStudentUrl" href="#" target="_blank">Open student page</a>
+        <button class="secondary" id="liveRefresh" type="button">Refresh run</button>
+        <button class="secondary" id="liveFinish" type="button">Finish run</button>
+      </div>
+    </div>
+  </article>
+</section>
+
+<section class="split">
+  <article class="panel">
+    <h2>Captured Caption</h2>
+    <pre id="liveCaptionPreview">No captured caption yet.</pre>
+  </article>
+  <article class="panel">
+    <h2>Quality Notes</h2>
+    <form id="liveNotesForm">
+      <label class="field">Transcript quality
+        <select id="liveTranscriptQuality"><option value="">unrated</option><option>good</option><option>acceptable</option><option>poor</option></select>
+      </label>
+      <label class="field">Translation quality
+        <select id="liveTranslationQuality"><option value="">unrated</option><option>good</option><option>acceptable</option><option>poor</option></select>
+      </label>
+      <label class="field">Notes <textarea id="liveQualityNotes" rows="4"></textarea></label>
+      <button class="secondary" type="submit">Save notes</button>
+    </form>
+  </article>
+</section>
+
+<section class="panel">
+  <h2>Recent Runs</h2>
+  <div class="caption-list">
+    {% for run in runs %}
+      <div class="caption-item"><strong>{{ run.id }}</strong><p>{{ run.status }} / {{ run.stt_provider }} + {{ run.translation_provider }} / {{ run.test_phrase_label }} / total {{ run.total_latency_ms or "n/a" }} ms</p></div>
+    {% else %}
+      <p class="muted">No live mic tests yet.</p>
+    {% endfor %}
+  </div>
+</section>
+<div id="toast" class="toast" hidden></div>
+{% endblock %}
+{% block scripts %}<script src="/static/live_tests.js"></script>{% endblock %}

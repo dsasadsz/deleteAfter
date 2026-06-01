@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}Real Local Zoom + Browser Mic Test{% endblock %}
+{% block content %}
+<section class="toolbar compact">
+  <div>
+    <h1>Real Local Zoom + Browser Mic Test</h1>
+    <p class="muted">End-to-end local flow: Zoom host, Meeting SDK student video, teacher browser microphone audio, STT, translation, captions.</p>
+  </div>
+  <a class="button secondary" href="/dashboard">Dashboard</a>
+</section>
+
+<section class="split">
+  <article class="panel">
+    <h2>Step 1 Readiness</h2>
+    <dl id="realReadiness">
+      <dt>Zoom API</dt><dd>{{ "ready" if readiness.zoom.api.ready else "missing " ~ readiness.zoom.api.missing | join(", ") }}</dd>
+      <dt>Meeting SDK</dt><dd>{{ "ready" if readiness.zoom.meeting_sdk.ready else "missing " ~ readiness.zoom.meeting_sdk.missing | join(", ") }}</dd>
+      <dt>Browser Mic</dt><dd>{{ "ready" if readiness.browser_audio.ready else "disabled" }}</dd>
+      <dt>ElevenLabs</dt><dd>{{ "ready" if readiness.stt.elevenlabs.ready else "missing " ~ readiness.stt.elevenlabs.missing | join(", ") }}</dd>
+      <dt>Azure STT</dt><dd>{{ "ready" if readiness.stt.azure.ready else "missing " ~ readiness.stt.azure.missing | join(", ") }}</dd>
+      <dt>Cartesia</dt><dd>{{ "ready" if readiness.stt.cartesia.ready else "missing " ~ readiness.stt.cartesia.missing | join(", ") }}</dd>
+      <dt>Azure Translator</dt><dd>{{ "ready" if readiness.translation.azure.ready else "missing " ~ readiness.translation.azure.missing | join(", ") }}</dd>
+    </dl>
+    {% if not readiness.zoom.meeting_sdk.ready %}
+      <p class="muted">Zoom video unavailable: Meeting SDK credentials missing.</p>
+    {% endif %}
+  </article>
+
+  <article class="panel">
+    <h2>Step 2 Create Zoom Lesson</h2>
+    <form id="realTestForm">
+      <label class="field">Title <input id="realTitle" type="text" value="Real local Zoom + Browser Mic test"></label>
+      <label class="field">Audio source
+        <select id="realAudioSource">
+          <option value="browser_ws">Browser Mic WebSocket</option>
+          {% if settings.rtms_ui_enabled %}
+          <option value="zoom_rtms">Experimental Zoom RTMS</option>
+          {% endif %}
+        </select>
+      </label>
+      <label class="field">STT provider
+        <select id="realSttProvider">
+          <option value="mock">mock</option>
+          <option value="elevenlabs">elevenlabs</option>
+          <option value="azure">azure</option>
+          <option value="cartesia">cartesia</option>
+        </select>
+      </label>
+      <label class="field">Translator
+        <select id="realTranslator">
+          <option value="mock">mock</option>
+          <option value="azure">azure</option>
+        </select>
+      </label>
+      <label class="field">Target languages <input id="realLanguages" type="text" value="kk,uz,zh-Hans"></label>
+      <button class="primary" type="submit">Create Real Zoom Lesson</button>
+    </form>
+  </article>
+</section>
+
+<section class="split">
+  <article class="panel">
+    <h2>Steps 3-5 Run</h2>
+    <dl>
+      <dt>lesson_id</dt><dd id="realLessonId">none</dd>
+      <dt>meeting_id</dt><dd id="realMeetingId">none</dd>
+      <dt>meeting_uuid</dt><dd id="realMeetingUuid">none</dd>
+      <dt>password</dt><dd id="realPassword">none</dd>
+      {% if settings.rtms_ui_enabled %}
+      <dt>RTMS status</dt><dd id="realRtmsStatus">none</dd>
+      {% endif %}
+      <dt>browser mic status</dt><dd id="realBrowserAudioStatus">none</dd>
+    </dl>
+    <div class="actions">
+      <a class="button secondary" id="openHostZoom" href="#" target="_blank" rel="noreferrer" hidden>Open Zoom as host</a>
+      {% if settings.rtms_ui_enabled %}
+      <button class="secondary" id="armRtms" type="button" disabled>Arm RTMS pipeline</button>
+      {% endif %}
+      <button class="secondary" id="startPipeline" type="button" disabled>Start pipeline manually</button>
+      <a class="button secondary" id="openStudentPage" href="#" target="_blank" hidden>Open student page</a>
+      <a class="button secondary" id="openTeacherPage" href="#" target="_blank" hidden>Open teacher mic controls</a>
+    </div>
+  </article>
+
+  <article class="panel">
+    <h2>Step 6 Diagnostics</h2>
+    <div class="log" id="realDiagnosticsLog"></div>
+  </article>
+</section>
+
+{% if settings.rtms_ui_enabled %}
+<section class="panel">
+  <h2>Experimental RTMS</h2>
+  <p class="muted">Requires public HTTPS webhook and Zoom RTMS enablement. Hidden from the normal local flow.</p>
+  <dl>
+    <dt>Webhook</dt><dd>{{ readiness.zoom.webhook.public_url or readiness.zoom.webhook.path }}</dd>
+    <dt>RTMS readiness</dt><dd>{{ "ready" if readiness.zoom.rtms.ready else "missing " ~ readiness.zoom.rtms.missing | join(", ") }}</dd>
+  </dl>
+</section>
+{% endif %}
+
+<section class="split">
+  <article class="panel">
+    <h2>Latest Captions</h2>
+    <div id="realCaptions" class="caption-list"></div>
+  </article>
+  <article class="panel">
+    <h2>Errors / Warnings</h2>
+    <div id="realErrors" class="log"></div>
+    <button class="secondary" id="copyDiagnostics" type="button">Copy debug JSON</button>
+  </article>
+</section>
+
+<section class="panel">
+  <h2>Latest Real Test Runs</h2>
+  <div class="caption-list">
+    {% for run in real_tests %}
+      <div class="caption-item">
+        <strong>{{ run.id }}</strong>
+        <p>{{ run.status }} / {{ run.stt_provider }} + {{ run.translation_provider }}</p>
+      </div>
+    {% else %}
+      <p class="muted">No real tests yet.</p>
+    {% endfor %}
+  </div>
+</section>
+
+<div id="toast" class="toast" hidden></div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/real_test.js"></script>
+{% endblock %}

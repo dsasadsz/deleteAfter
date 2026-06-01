@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Transcript {{ lesson_id }}{% endblock %}
+{% block content %}
+<section class="toolbar compact">
+  <div>
+    <h1>Transcript / Exports</h1>
+    <p class="muted">{{ transcript.title }} / {{ transcript.lesson_id }}</p>
+  </div>
+  <div class="actions">
+    <a class="button secondary" href="/teacher/{{ lesson_id }}">Teacher</a>
+    <a class="button secondary" href="/student/{{ lesson_id }}">Student</a>
+  </div>
+</section>
+
+<section class="split">
+  <article class="panel">
+    <h2>Lesson Info</h2>
+    <dl>
+      <dt>lesson_id</dt><dd>{{ transcript.lesson_id }}</dd>
+      <dt>providers</dt><dd>{{ transcript.providers.stt }} / {{ transcript.providers.translator }}</dd>
+      <dt>segments</dt><dd>{{ transcript.metrics.segments_count }}</dd>
+      <dt>glossary</dt><dd>{{ transcript.glossary.glossary_id or "none" }}</dd>
+      <dt>corrections</dt><dd>{{ transcript.metrics.glossary_corrections_count }}</dd>
+      <dt>avg latency</dt><dd>{{ transcript.metrics.latency.avg_total }} ms</dd>
+      <dt>estimated cost</dt><dd>{{ cost_summary.total_estimated_cost }} {{ cost_summary.currency }}</dd>
+      <dt>cost warnings</dt><dd>{{ cost_summary.warnings | join(", ") if cost_summary.warnings else "none" }}</dd>
+    </dl>
+  </article>
+  <article class="panel">
+    <h2>Exports</h2>
+    <div class="actions">
+      <a class="button secondary" href="/api/lessons/{{ lesson_id }}/exports/json">JSON</a>
+      <a class="button secondary" href="/api/lessons/{{ lesson_id }}/exports/srt?lang=ru&normalized=true">SRT RU</a>
+      <a class="button secondary" href="/api/lessons/{{ lesson_id }}/exports/srt?lang=kk">SRT KK</a>
+      <a class="button secondary" href="/api/lessons/{{ lesson_id }}/exports/srt?lang=uz">SRT UZ</a>
+      <a class="button secondary" href="/api/lessons/{{ lesson_id }}/exports/srt?lang=zh-Hans">SRT ZH</a>
+      <a class="button secondary" href="/api/lessons/{{ lesson_id }}/exports/vtt?lang=ru&normalized=true">VTT RU</a>
+      <a class="button secondary" href="/api/lessons/{{ lesson_id }}/exports/vtt?lang=kk">VTT KK</a>
+      <a class="button secondary" href="/api/lessons/{{ lesson_id }}/exports/vtt?lang=uz">VTT UZ</a>
+      <a class="button secondary" href="/api/lessons/{{ lesson_id }}/exports/vtt?lang=zh-Hans">VTT ZH</a>
+      <a class="button secondary" href="/api/lessons/{{ lesson_id }}/exports/markdown?lang=all">Markdown notes</a>
+      <a class="button secondary" href="/api/lessons/{{ lesson_id }}/exports/html?lang=all">HTML notes</a>
+    </div>
+  </article>
+</section>
+
+<section class="panel">
+  <div class="actions">
+    <label class="field">Language
+      <select id="transcriptLanguage">
+        <option value="all">Show all</option>
+        <option value="raw">Russian raw</option>
+        <option value="ru">Russian normalized</option>
+        <option value="kk">Kazakh</option>
+        <option value="uz">Uzbek</option>
+        <option value="zh-Hans">Chinese</option>
+      </select>
+    </label>
+    <label class="field">Search <input id="transcriptSearch" type="text" placeholder="Find text"></label>
+    <button class="secondary" id="generateSimpleNotes" data-lesson-id="{{ lesson_id }}" type="button">Generate simple notes</button>
+  </div>
+  <div id="notesResult" class="caption-item" hidden></div>
+</section>
+
+<section class="panel">
+  <h2>Timeline</h2>
+  <div class="caption-list" id="transcriptSegments">
+    {% for segment in transcript.segments %}
+      <article class="caption-item transcript-segment"
+        data-raw="{{ segment.original_text_raw }}"
+        data-ru="{{ segment.original_text_normalized }}"
+        data-kk="{{ segment.translations.kk or '' }}"
+        data-uz="{{ segment.translations.uz or '' }}"
+        data-zh-hans="{{ segment.translations['zh-Hans'] or '' }}">
+        <div class="card-row">
+          <strong>{{ segment.start_time }} - {{ segment.end_time }}</strong>
+          <span>{{ segment.provider.stt }} / {{ segment.provider.translator }}</span>
+        </div>
+        <pre class="segmentText">RU raw: {{ segment.original_text_raw }}
+RU normalized: {{ segment.original_text_normalized }}
+kk: {{ segment.translations.kk or "Translation unavailable" }}
+uz: {{ segment.translations.uz or "Translation unavailable" }}
+zh-Hans: {{ segment.translations['zh-Hans'] or "Translation unavailable" }}</pre>
+        {% if segment.glossary.normalization_changes or segment.glossary.postprocess_changes %}
+          <p class="muted">Glossary corrections: {{ (segment.glossary.normalization_changes | length) + (segment.glossary.postprocess_changes | length) }}</p>
+        {% endif %}
+      </article>
+    {% else %}
+      <p class="muted">No final transcript segments yet.</p>
+    {% endfor %}
+  </div>
+</section>
+<div id="toast" class="toast" hidden></div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/transcript.js"></script>
+{% endblock %}

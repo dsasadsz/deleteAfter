@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{% block title %}Teacher {{ lesson.lesson_id }}{% endblock %}
+{% block content %}
+<section class="toolbar compact">
+  <div>
+    <h1>{{ lesson.title }}</h1>
+    <p class="muted">{{ lesson.lesson_id }} / {{ lesson.mode }} lesson</p>
+  </div>
+  <div class="actions">
+    <a class="button secondary" href="{{ lesson.zoom_start_url }}" target="_blank" rel="noreferrer">Open Zoom as host</a>
+    <a class="button secondary" href="/student/{{ lesson.lesson_id }}">Open student page</a>
+    <a class="button secondary" href="/lessons/{{ lesson.lesson_id }}/transcript">Transcript / exports</a>
+    <a class="button secondary" href="/real-test">Diagnostics wizard</a>
+    <a class="button secondary" href="/smoke?lesson_id={{ lesson.lesson_id }}">Run smoke test</a>
+    <button class="primary" id="startLesson" data-lesson-id="{{ lesson.lesson_id }}">{{ "Start Lesson Pipeline" if lesson.mode == "zoom" else "Start Mock Captions" }}</button>
+    <button class="danger" id="stopLesson" data-lesson-id="{{ lesson.lesson_id }}">Stop Lesson</button>
+  </div>
+</section>
+
+<section class="split">
+  <article class="panel">
+    <h2>Lesson</h2>
+    <dl class="details">
+      <dt>lesson_id</dt><dd>{{ lesson.lesson_id }}</dd>
+      <dt>mode</dt><dd>{{ lesson.mode }}</dd>
+      <dt>audio_source</dt><dd id="lessonAudioSource">{{ lesson.audio_source }}</dd>
+      <dt>Zoom topic</dt><dd>{{ lesson.zoom_topic }}</dd>
+      <dt>Zoom meeting_id</dt><dd>{{ lesson.zoom_meeting_id }}</dd>
+      <dt>Zoom meeting_uuid</dt><dd>{{ lesson.zoom_meeting_uuid }}</dd>
+      <dt>Zoom created_at</dt><dd>{{ lesson.zoom_created_at or "mock" }}</dd>
+      <dt>start_url</dt><dd><a href="{{ lesson.zoom_start_url }}" target="_blank" rel="noreferrer">{{ lesson.zoom_start_url }}</a></dd>
+      <dt>join_url</dt><dd><a href="{{ lesson.zoom_join_url }}" target="_blank" rel="noreferrer">{{ lesson.zoom_join_url }}</a></dd>
+      <dt>STT provider</dt><dd>{{ lesson.stt_provider }}</dd>
+      <dt>video embed</dt><dd>{{ "mock" if lesson.mode == "mock" else "Meeting SDK if configured" }}</dd>
+      <dt>glossary</dt><dd id="teacherGlossaryStatus">{{ lesson.glossary_id or "none" }} / {{ "enabled" if lesson.glossary_enabled else "disabled" }}</dd>
+    <dt>Translation provider</dt><dd>{{ lesson.translation_provider }}</dd>
+    <dt>translation requests</dt><dd>{{ lesson.translation_requests_count }}</dd>
+    <dt>translation errors</dt><dd>{{ lesson.translation_errors_count }}</dd>
+    <dt>avg translation latency</dt><dd>{{ lesson.translation_avg_latency_ms }} ms</dd>
+    <dt>last translation error</dt><dd>{{ lesson.translation_last_error or "none" }}</dd>
+    </dl>
+  </article>
+  <article class="panel">
+    <h2>Debug log</h2>
+    <div class="log" id="debugLog" data-lesson-id="{{ lesson.lesson_id }}"></div>
+  </article>
+</section>
+
+{% set browser_chunk_ms = settings.browser_audio_chunk_ms|default(100) %}
+{% set browser_max_segment_ms = settings.browser_audio_max_segment_duration_ms|default(5000) %}
+{% set stt_commit_strategy = settings.elevenlabs_stt_commit_strategy|default("vad") %}
+{% set stt_silence_ms = settings.elevenlabs_stt_manual_commit_after_silence_ms|default(800) %}
+{% set stt_partials_for_live = settings.elevenlabs_stt_partials_for_live|default(true) %}
+<section class="panel browser-audio-panel" data-lesson-id="{{ lesson.lesson_id }}" data-audio-token="{{ teacher_audio_token|default('') }}">
+  <div class="card-row">
+    <h2>Teacher Microphone Audio</h2>
+    <span class="muted">Zoom RTMS is currently disabled. Audio for captions is captured directly from teacher browser microphone.</span>
+  </div>
+  <div class="actions">
+    <label class="field compact-field">Audio source
+      <select id="audioSourceSelector" data-lesson-id="{{ lesson.lesson_id }}">
+        <option value="mock" {% if lesson.audio_source == "mock" %}selected{% endif %}>Mock</option>
+        {% if settings.rtms_ui_enabled %}
+        <option value="zoom_rtms" {% if lesson.audio_source == "zoom_rtms" %}selected{% endif %}>Zoom RTMS</option>
+        {% endif %}
+        <option value="browser_ws" {% if lesson.audio_source == "browser_ws" %}selected{% endif %}>Browser Mic WebSocket</option>
+      </select>
+    </label>
+    <button class="secondary" id="saveAudioSource" type="button">Set source</button>
+    <button class="primary" id="startBrowserMic" type="button">Start microphone streaming</button>
+    <button class="danger" id="stopBrowserMic" type="button" disabled>Stop microphone streaming</button>
+    <button class="secondary" id="forceSttCommit" type="button">Force STT commit</button>
+  </div>
+  <div class="actions">
+    <label class="field compact-field">Commit strategy
+      <select id="sttCommitStrategy">
+        <option value="vad" {% if stt_commit_strategy == "vad" %}selected{% endif %}>VAD</option>
+        <option value="manual" {% if stt_commit_strategy == "manual" %}selected{% endif %}>Manual</option>
+      </select>
+    </label>
+    <label class="field compact-field">Chunk ms
+      <input id="browserMicChunkMsInput" type="number" min="20" max="500" step="10" value="{{ browser_chunk_ms }}">
+    </label>
+    <label class="field compact-field">Silence ms
+      <input id="manualCommitSilenceMs" type="number" min="0" max="5000" step="100" value="{{ stt_silence_ms }}">
+    </label>
+    <label class="field compact-field">Max segment duration ms
+      <input id="maxSegmentDurationMs" type="number" min="0" max="60000" step="500" value="{{ browser_max_segment_ms }}">
+    </label>
+    <label><input type="checkbox" id="partialsForLive" {% if stt_partials_for_live %}checked{% endif %}> Partials</label>
+    <label><input type="checkbox" id="manualCommitAfterSilence" {% if stt_silence_ms > 0 %}checked{% endif %}> Commit after silence</label>
+  </div>
+  <dl class="details">
+    <dt>mic status</dt><dd id="browserMicStatus">{{ lesson.browser_audio_status }}</dd>
+    <dt>chunks received</dt><dd id="browserMicChunks">{{ lesson.browser_audio_chunks_received }}</dd>
+    <dt>bytes sent</dt><dd id="browserMicBytes">{{ lesson.browser_audio_bytes_received }}</dd>
+    <dt>dropped chunks</dt><dd id="browserMicDropped">{{ lesson.browser_audio_chunks_dropped }}</dd>
+    <dt>queue size</dt><dd id="browserMicQueue">0</dd>
+    <dt>sample rate</dt><dd id="browserMicSampleRate">16000</dd>
+    <dt>chunk ms</dt><dd id="browserMicChunkMs">100</dd>
+    <dt>commit strategy</dt><dd id="browserMicCommitStrategy">{{ stt_commit_strategy }}</dd>
+    <dt>silence commit</dt><dd id="browserMicSilenceCommit">{{ stt_silence_ms }} ms</dd>
+    <dt>max segment duration</dt><dd id="browserMicMaxSegment">{{ browser_max_segment_ms }} ms</dd>
+    <dt>live partials</dt><dd id="browserMicPartials">{{ "on" if stt_partials_for_live else "off" }}</dd>
+    <dt>estimated upload latency</dt><dd id="browserMicUploadLatency">0 ms</dd>
+    <dt>worklet_messages_received</dt><dd id="browserMicWorkletMessages">0</dd>
+    <dt>float_frames_received</dt><dd id="browserMicFloatFrames">0</dd>
+    <dt>pcm_frames_sent</dt><dd id="browserMicPcmFramesSent">0</dd>
+    <dt>binary_ws_frames_sent</dt><dd id="browserMicBinaryWsFramesSent">0</dd>
+    <dt>ws_ready_state</dt><dd id="browserMicWsReadyState">not_created</dd>
+    <dt>audio_context_state</dt><dd id="browserMicAudioContextState">none</dd>
+    <dt>input_sample_rate</dt><dd id="browserMicInputSampleRate">0</dd>
+    <dt>capture_backend</dt><dd id="browserMicCaptureBackend">none</dd>
+    <dt>last_frontend_error</dt><dd id="browserMicLastFrontendError">none</dd>
+    <dt>fallback_reason</dt><dd id="browserMicFallbackReason">none</dd>
+    <dt>frontend_initialized</dt><dd id="browserMicFrontendInitialized">false</dd>
+    <dt>start_button_bound</dt><dd id="browserMicStartButtonBound">false</dd>
+    <dt>start_clicked_count</dt><dd id="browserMicStartClickedCount">0</dd>
+    <dt>lesson_id_from_dom</dt><dd id="browserMicLessonIdFromDom">none</dd>
+    <dt>audio_ingest_url</dt><dd id="browserMicAudioIngestUrl">none</dd>
+    <dt>track state</dt><dd id="browserMicTrackState">none</dd>
+    <dt>backend WS</dt><dd id="browserMicBackendWs">false</dd>
+    <dt>backend metadata/binary</dt><dd><span id="browserMicBackendMetadata">false</span> / <span id="browserMicBackendBinaryFrames">0</span></dd>
+    <dt>backend connection</dt><dd id="browserMicBackendConnection">none</dd>
+    <dt>permission/error</dt><dd id="browserMicError">{{ lesson.browser_audio_error or "none" }}</dd>
+    <dt>pipeline status</dt><dd id="pipelineStatus">{{ lesson.pipeline_status }}</dd>
+    <dt>pipeline source</dt><dd id="pipelineAudioSource">{{ lesson.pipeline_audio_source or lesson.audio_source }}</dd>
+    <dt>pipeline chunks</dt><dd id="pipelineChunksProcessed">{{ lesson.pipeline_chunks_processed }}</dd>
+    <dt>STT provider</dt><dd id="sttProviderStatus">{{ lesson.stt_provider }} / {{ lesson.stt_provider_status }}</dd>
+    <dt>STT chunks sent</dt><dd id="sttProviderChunksSent">{{ lesson.stt_provider_audio_chunks_sent }}</dd>
+    <dt>STT bytes sent</dt><dd id="sttProviderBytesSent">{{ lesson.stt_provider_audio_bytes_sent }}</dd>
+    <dt>STT partial/final</dt><dd><span id="sttProviderPartials">{{ lesson.stt_provider_partial_events }}</span> / <span id="sttProviderFinals">{{ lesson.stt_provider_final_events }}</span></dd>
+    <dt>STT no match/canceled</dt><dd><span id="sttProviderNoMatch">{{ lesson.stt_provider_no_match_count }}</span> / <span id="sttProviderCanceled">{{ lesson.stt_provider_canceled_count }}</span></dd>
+    <dt>STT last event</dt><dd id="sttProviderLastEvent">{{ lesson.stt_provider_last_event_at or "none" }}</dd>
+    <dt>STT last error</dt><dd id="sttProviderLastError">{{ lesson.stt_provider_last_error or "none" }}</dd>
+    <dt>STT last transcript</dt><dd id="sttProviderLastTranscript">{{ lesson.stt_provider_last_transcript or "none" }}</dd>
+    <dt>translator</dt><dd>{{ lesson.translation_provider }}</dd>
+    <dt>translation requests</dt><dd id="translationRequests">{{ lesson.translation_requests_count }}</dd>
+    <dt>translation errors</dt><dd id="translationErrors">{{ lesson.translation_errors_count }}</dd>
+    <dt>last translation error</dt><dd id="translationLastError">{{ lesson.translation_last_error or "none" }}</dd>
+    <dt>captions sent</dt><dd id="captionsSent">{{ lesson.captions_sent }}</dd>
+    <dt>avg translation latency</dt><dd id="translationAvgLatency">{{ lesson.translation_avg_latency_ms }} ms</dd>
+  </dl>
+</section>
+
+{% if settings.rtms_ui_enabled %}
+<section class="panel rtms-panel" data-lesson-id="{{ lesson.lesson_id }}" data-mode="{{ lesson.mode }}">
+  <div class="card-row">
+    <h2>Experimental Zoom RTMS</h2>
+    {% if lesson.mode == "zoom" %}
+      <button class="secondary" id="startRtms" data-lesson-id="{{ lesson.lesson_id }}">Start RTMS</button>
+      <button class="secondary" id="refreshRtms" data-lesson-id="{{ lesson.lesson_id }}">Refresh RTMS status</button>
+    {% else %}
+      <span class="muted">RTMS not used in mock mode</span>
+    {% endif %}
+  </div>
+  <dl class="details">
+    <dt>status</dt><dd id="rtmsPanelStatus">{{ lesson.rtms_status }}</dd>
+    <dt>stream_id</dt><dd id="rtmsStreamId">{{ lesson.rtms_stream_id or "none" }}</dd>
+    <dt>audio chunks</dt><dd id="rtmsAudioChunks">{{ lesson.audio_chunks_received }}</dd>
+    <dt>audio dropped</dt><dd id="rtmsAudioDropped">{{ lesson.audio_chunks_dropped }}</dd>
+    <dt>audio queue size</dt><dd id="rtmsAudioQueueSize">0</dd>
+    <dt>transcript events</dt><dd id="rtmsTranscriptEvents">{{ lesson.transcript_events_received }}</dd>
+    <dt>pipeline status</dt><dd id="pipelineStatus">{{ lesson.pipeline_status }}</dd>
+    <dt>pipeline source</dt><dd id="pipelineAudioSource">{{ lesson.pipeline_audio_source or "none" }}</dd>
+    <dt>pipeline chunks</dt><dd id="pipelineChunksProcessed">{{ lesson.pipeline_chunks_processed }}</dd>
+    <dt>STT events</dt><dd id="sttEventsGenerated">{{ lesson.stt_events_generated }}</dd>
+    <dt>captions sent</dt><dd id="captionsSent">{{ lesson.captions_sent }}</dd>
+    <dt>STT provider status</dt><dd id="sttProviderStatus">{{ lesson.stt_provider_status }}</dd>
+    <dt>STT chunks sent</dt><dd id="sttProviderChunksSent">{{ lesson.stt_provider_audio_chunks_sent }}</dd>
+    <dt>STT bytes sent</dt><dd id="sttProviderBytesSent">{{ lesson.stt_provider_audio_bytes_sent }}</dd>
+    <dt>STT partial/final</dt><dd><span id="sttProviderPartials">{{ lesson.stt_provider_partial_events }}</span> / <span id="sttProviderFinals">{{ lesson.stt_provider_final_events }}</span></dd>
+    <dt>STT no match/canceled</dt><dd><span id="sttProviderNoMatch">{{ lesson.stt_provider_no_match_count }}</span> / <span id="sttProviderCanceled">{{ lesson.stt_provider_canceled_count }}</span></dd>
+    <dt>STT last event</dt><dd id="sttProviderLastEvent">{{ lesson.stt_provider_last_event_at or "none" }}</dd>
+    <dt>STT last error</dt><dd id="sttProviderLastError">{{ lesson.stt_provider_last_error or "none" }}</dd>
+    <dt>STT last transcript</dt><dd id="sttProviderLastTranscript">{{ lesson.stt_provider_last_transcript or "none" }}</dd>
+    <dt>translation requests</dt><dd id="translationRequests">{{ lesson.translation_requests_count }}</dd>
+    <dt>translation errors</dt><dd id="translationErrors">{{ lesson.translation_errors_count }}</dd>
+    <dt>avg translation latency</dt><dd id="translationAvgLatency">{{ lesson.translation_avg_latency_ms }} ms</dd>
+    <dt>last translation error</dt><dd id="translationLastError">{{ lesson.translation_last_error or "none" }}</dd>
+    <dt>last audio</dt><dd id="rtmsLastAudio">{{ lesson.rtms_last_audio_at or "none" }}</dd>
+    <dt>last transcript</dt><dd id="rtmsLastTranscript">{{ lesson.rtms_last_transcript_at or "none" }}</dd>
+    <dt>last error</dt><dd id="rtmsLastError">{{ lesson.rtms_error or "none" }}</dd>
+  </dl>
+</section>
+{% endif %}
+
+<section class="panel">
+  <h2>Glossary</h2>
+  <div class="actions">
+    <select id="teacherGlossary" data-lesson-id="{{ lesson.lesson_id }}">
+      <option value="">No glossary</option>
+      {% for glossary in glossaries %}
+        <option value="{{ glossary.id }}" {% if glossary.id == lesson.glossary_id %}selected{% endif %}>{{ glossary.name }} / {{ glossary.terms_count }} terms</option>
+      {% endfor %}
+    </select>
+    <label><input type="checkbox" id="teacherGlossaryEnabled" {% if lesson.glossary_enabled %}checked{% endif %}> Enabled</label>
+    <button class="secondary" id="saveTeacherGlossary" type="button">Save glossary</button>
+    <a class="button secondary" href="/glossaries">Manage terms</a>
+  </div>
+  <p class="muted">Corrections are applied after STT and before translation; final captions include glossary debug metadata.</p>
+</section>
+<section class="panel teacher-questions-panel" data-lesson-id="{{ lesson.lesson_id }}">
+  <div class="card-row">
+    <h2>Student Questions</h2>
+    <span class="status" id="teacherQuestionStatus">connecting</span>
+  </div>
+  <p class="muted">Separate reverse flow: student text/voice question -> Russian translation -> teacher panel.</p>
+  <div class="caption-list" id="teacherQuestionList"></div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script src="/static/app.js"></script>
+<script src="/static/teacher_mic.js?v=browser-audio-debug-20260514"></script>
+<script src="/static/teacher_questions.js"></script>
+{% endblock %}

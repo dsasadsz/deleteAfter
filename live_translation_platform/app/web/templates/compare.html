@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}Provider Comparison{% endblock %}
+{% block content %}
+<section class="toolbar compact">
+  <div>
+    <h1>Provider Comparison</h1>
+    <p class="muted">Run the same audio sample through multiple STT providers and one translator.</p>
+  </div>
+  <a class="button secondary" href="/dashboard">Dashboard</a>
+</section>
+
+<section class="split">
+  <article class="panel">
+    <h2>Run Comparison</h2>
+    <form id="compareForm">
+      <label class="field">
+        Audio source
+        <select id="compareAudioMode">
+          <option value="mock_chunks">Mock generated chunks</option>
+          <option value="wav_upload">Uploaded WAV file</option>
+          <option value="fake_rtms">Fake RTMS injection</option>
+          <option value="direct_ws">Browser WS simulation</option>
+        </select>
+      </label>
+      <label class="field" id="compareUploadField" hidden>
+        WAV file
+        <input type="file" id="compareAudioFile" accept=".wav,audio/wav,audio/x-wav">
+      </label>
+      <fieldset class="field compare-checks">
+        <legend>STT providers</legend>
+        <label><input type="checkbox" name="stt_provider" value="mock" checked> mock</label>
+        <label><input type="checkbox" name="stt_provider" value="elevenlabs"> elevenlabs</label>
+        <label><input type="checkbox" name="stt_provider" value="azure"> azure</label>
+        <label><input type="checkbox" name="stt_provider" value="cartesia"> cartesia</label>
+      </fieldset>
+      <label class="field">
+        Translator
+        <select id="compareTranslator">
+          <option value="mock">mock</option>
+          <option value="azure">azure</option>
+        </select>
+      </label>
+      <label class="field">
+        Target languages
+        <input type="text" id="compareLanguages" value="kk,uz,zh-Hans">
+      </label>
+      <label class="field">
+        Run mode
+        <select id="compareRunMode">
+          <option value="sequential">sequential</option>
+          <option value="parallel">parallel</option>
+        </select>
+      </label>
+      <label class="field">
+        Glossary
+        <select id="compareGlossary">
+          <option value="">Glossary off</option>
+          {% for glossary in glossaries %}
+            <option value="{{ glossary.id }}">{{ glossary.name }} / {{ glossary.terms_count }} terms</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label><input type="checkbox" id="compareGlossaryEnabled"> Enable glossary</label>
+      <button class="primary" type="submit">Run Comparison</button>
+    </form>
+  </article>
+
+  <article class="panel">
+    <h2>Readiness</h2>
+    <dl>
+      <dt>Mock STT</dt><dd><span class="ok">ready</span></dd>
+      <dt>ElevenLabs</dt><dd>{% if provider_status.stt.elevenlabs.ready %}<span class="ok">ready</span>{% else %}<span class="late">missing {{ provider_status.stt.elevenlabs.missing | join(", ") }}</span>{% endif %}</dd>
+      <dt>Azure STT</dt><dd>{% if provider_status.stt.azure.ready %}<span class="ok">ready</span>{% else %}<span class="late">missing {{ provider_status.stt.azure.missing | join(", ") }}</span>{% endif %}</dd>
+      <dt>Cartesia</dt><dd>{% if provider_status.stt.cartesia.ready %}<span class="ok">ready</span>{% else %}<span class="late">missing {{ provider_status.stt.cartesia.missing | join(", ") }}</span>{% endif %}</dd>
+      <dt>Azure Translator</dt><dd>{% if provider_status.translation.azure.ready %}<span class="ok">ready</span>{% else %}<span class="late">missing {{ provider_status.translation.azure.missing | join(", ") }}</span>{% endif %}</dd>
+    </dl>
+    <div id="compareUploadStatus" class="muted"></div>
+  </article>
+</section>
+
+<section class="panel">
+  <h2>Live Progress</h2>
+  <div class="log" id="compareLog"></div>
+</section>
+
+<section class="panel">
+  <h2>Results</h2>
+  <div class="table-wrap">
+    <table class="results-table">
+      <thead>
+        <tr>
+          <th>STT</th>
+          <th>Translator</th>
+          <th>Audio source</th>
+          <th>Status</th>
+          <th>Ingest</th>
+          <th>First partial</th>
+          <th>STT final</th>
+          <th>Translation</th>
+          <th>Total</th>
+          <th>Client</th>
+          <th>Dropped</th>
+          <th>Sample rate</th>
+          <th>Cost</th>
+          <th>Transcript</th>
+          <th>Glossary</th>
+          <th>KK</th>
+          <th>UZ</th>
+          <th>ZH</th>
+          <th>Error</th>
+        </tr>
+      </thead>
+      <tbody id="compareResults"></tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Recent Comparisons</h2>
+  <div class="caption-list">
+    {% for comparison in comparisons %}
+      <div class="caption-item">
+        <strong>{{ comparison.id }}</strong>
+        <p>{{ comparison.status }} / {{ comparison.audio_mode }} / {{ comparison.translation_provider }}</p>
+      </div>
+    {% else %}
+      <p class="muted">No provider comparisons yet.</p>
+    {% endfor %}
+  </div>
+</section>
+
+<div id="toast" class="toast" hidden></div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/compare.js"></script>
+{% endblock %}

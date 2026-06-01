@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Glossaries{% endblock %}
+{% block content %}
+<section class="toolbar compact">
+  <div>
+    <h1>Glossaries</h1>
+    <p class="muted">Terminology normalization and translation post-processing for technical lessons.</p>
+  </div>
+  <button class="primary" id="loadProgrammingGlossary" type="button">Load programming_ru</button>
+</section>
+
+<section class="split">
+  <article class="panel">
+    <h2>Create Glossary</h2>
+    <form id="glossaryCreateForm">
+      <label class="field">Name <input id="glossaryName" type="text" value="custom_ru"></label>
+      <label class="field">Domain <input id="glossaryDomain" type="text" value="programming"></label>
+      <label class="field">Description <input id="glossaryDescription" type="text" value=""></label>
+      <label class="field">Target languages <input id="glossaryLanguages" type="text" value="kk,uz,zh-Hans"></label>
+      <button class="secondary" type="submit">Create</button>
+    </form>
+  </article>
+  <article class="panel">
+    <h2>Existing</h2>
+    <div class="caption-list" id="glossaryList">
+      {% for glossary in glossaries %}
+        <div class="caption-item">
+          <strong><a href="/glossaries/{{ glossary.id }}">{{ glossary.name }}</a></strong>
+          <p>{{ glossary.domain or "general" }} / {{ glossary.source_language }} -> {{ glossary.target_languages | join(", ") }}</p>
+          <p class="muted">{{ glossary.terms_count }} terms{% if glossary.is_default %} / default{% endif %}</p>
+        </div>
+      {% else %}
+        <p class="muted">No glossaries yet. Load the default programming glossary to start.</p>
+      {% endfor %}
+    </div>
+  </article>
+</section>
+<div id="toast" class="toast" hidden></div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/glossaries.js"></script>
+{% endblock %}

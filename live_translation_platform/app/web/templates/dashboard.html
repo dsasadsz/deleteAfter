@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<section class="toolbar compact">
+  <div>
+    <h1>Dashboard</h1>
+    <p class="muted">Lessons, students, providers, latency, latest captions.</p>
+  </div>
+  <div class="actions">
+    <a class="button primary" href="/smoke">Run smoke test</a>
+    <a class="button secondary" href="/compare">Compare providers</a>
+    <a class="button secondary" href="/real-test">Real test wizard</a>
+    <a class="button secondary" href="/">Create lessons</a>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Audio Source Summary</h2>
+  <dl>
+    <dt>primary audio source</dt><dd>{{ settings.default_audio_source }}</dd>
+    <dt>browser audio enabled</dt><dd>{{ "yes" if settings.browser_audio_enabled else "no" }}</dd>
+    <dt>browser_ws connections</dt><dd>{{ lessons | selectattr("audio_source", "equalto", "browser_ws") | list | length }}</dd>
+    <dt>browser_ws chunks</dt><dd>{{ lessons | sum(attribute="browser_audio_chunks_received") }}</dd>
+    <dt>captions</dt><dd>{{ lessons | sum(attribute="captions_sent") }}</dd>
+    <dt>providers</dt><dd>{{ settings.stt_provider }} / {{ settings.translation_provider }}</dd>
+  </dl>
+</section>
+
+<section class="split">
+  <article class="panel">
+    <h2>Providers Status</h2>
+    <dl>
+      <dt>STT mock</dt><dd><span class="ok">ready</span></dd>
+      <dt>STT ElevenLabs</dt>
+      <dd>
+        {% if provider_status.stt.elevenlabs.ready %}
+          <span class="ok">ready</span>
+        {% else %}
+          <span class="late">missing {{ provider_status.stt.elevenlabs.missing | join(", ") }}</span>
+        {% endif %}
+      </dd>
+      <dt>STT Azure</dt>
+      <dd>
+        {% if provider_status.stt.azure.ready %}
+          <span class="ok">ready</span>
+        {% else %}
+          <span class="late">missing {{ provider_status.stt.azure.missing | join(", ") }}</span>
+        {% endif %}
+      </dd>
+      <dt>STT Cartesia</dt>
+      <dd>
+        {% if provider_status.stt.cartesia.ready %}
+          <span class="ok">ready</span>
+        {% else %}
+          <span class="late">missing {{ provider_status.stt.cartesia.missing | join(", ") }}</span>
+        {% endif %}
+      </dd>
+      <dt>Translator mock</dt><dd><span class="ok">ready</span></dd>
+      <dt>Translator Azure</dt>
+      <dd>
+        {% if provider_status.translation.azure.ready %}
+          <span class="ok">ready</span>
+        {% else %}
+          <span class="late">missing {{ provider_status.translation.azure.missing | join(", ") }}</span>
+        {% endif %}
+      </dd>
+    </dl>
+  </article>
+  <article class="panel">
+    <h2>Latest Smoke Tests</h2>
+    <div class="caption-list">
+      {% for run in smoke_runs %}
+        <div class="caption-item">
+          <strong>{{ run.id }}</strong>
+          <p>{{ run.status }} / {{ run.audio_mode }} / {{ run.stt_provider }} + {{ run.translation_provider }}</p>
+          <p class="muted">{{ run.lesson_id or "temporary lesson" }}{% if run.error %} / {{ run.error }}{% endif %}</p>
+        </div>
+      {% else %}
+        <p class="muted">No smoke tests yet.</p>
+      {% endfor %}
+    </div>
+  </article>
+</section>
+
+<section class="panel">
+  <h2>Usage / Cost Summary</h2>
+  <dl>
+    <dt>audio minutes</dt><dd>{{ usage_summary.audio_minutes }}</dd>
+    <dt>translation characters</dt><dd>{{ usage_summary.translation_characters }}</dd>
+    <dt>captions</dt><dd>{{ usage_summary.captions }}</dd>
+    <dt>estimated cost</dt><dd>{{ usage_summary.total_estimated_cost }} {{ usage_summary.currency }}</dd>
+    <dt>usage page</dt><dd><a href="/usage">Open usage analytics</a></dd>
+  </dl>
+  <p class="muted">Costs are estimates. Configure pricing before financial decisions.</p>
+</section>
+
+<section class="panel">
+  <h2>Recent Comparisons</h2>
+  <div class="caption-list">
+    {% for comparison in comparisons %}
+      <div class="caption-item">
+        <strong>{{ comparison.id }}</strong>
+        <p>{{ comparison.status }} / {{ comparison.audio_mode }} / translator {{ comparison.translation_provider }}</p>
+        <p class="muted">fastest total: {{ comparison.summary.fastest_total_provider or "none" }}</p>
+      </div>
+    {% else %}
+      <p class="muted">No provider comparisons yet.</p>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Latest Local Zoom + Browser Mic Tests</h2>
+  <div class="caption-list">
+    {% for run in real_tests %}
+      <div class="caption-item">
+        <strong>{{ run.id }}</strong>
+        <p>{{ run.status }} / {{ run.stt_provider }} + {{ run.translation_provider }}</p>
+        <p class="muted">{{ run.lesson_id or "no lesson yet" }}{% if run.error %} / {{ run.error }}{% endif %}</p>
+      </div>
+    {% else %}
+        <p class="muted">No local Zoom + Browser Mic tests yet.</p>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="dashboard-grid">
+  {% for lesson in lessons %}
+    <article class="metric-card">
+      <div class="card-row">
+        <span class="status {{ lesson.status }}">{{ lesson.status }}</span>
+        <span class="mode">{{ lesson.mode }}</span>
+        <span>{{ lesson.connected_students }} students</span>
+      </div>
+      <h2>{{ lesson.title }}</h2>
+      <dl>
+        <dt>lesson_id</dt><dd>{{ lesson.lesson_id }}</dd>
+        <dt>Zoom meeting</dt><dd>{{ lesson.zoom_meeting_id }}</dd>
+        <dt>Zoom topic</dt><dd>{{ lesson.zoom_topic }}</dd>
+        <dt>audio source</dt><dd>{{ lesson.audio_source }}</dd>
+        <dt>browser audio status</dt><dd>{{ lesson.browser_audio_status }}</dd>
+        <dt>browser chunks</dt><dd>{{ lesson.browser_audio_chunks_received }}</dd>
+        <dt>browser bytes</dt><dd>{{ lesson.browser_audio_bytes_received }}</dd>
+        <dt>browser dropped</dt><dd>{{ lesson.browser_audio_chunks_dropped }}</dd>
+        <dt>pipeline source</dt><dd>{{ lesson.pipeline_audio_source or "none" }}</dd>
+        <dt>pipeline chunks</dt><dd>{{ lesson.pipeline_chunks_processed }}</dd>
+        <dt>STT events</dt><dd>{{ lesson.stt_events_generated }}</dd>
+        <dt>STT status</dt><dd>{{ lesson.stt_provider_status }}</dd>
+        <dt>STT partial/final</dt><dd>{{ lesson.stt_provider_partial_events }} / {{ lesson.stt_provider_final_events }}</dd>
+        <dt>STT no match/canceled</dt><dd>{{ lesson.stt_provider_no_match_count }} / {{ lesson.stt_provider_canceled_count }}</dd>
+        <dt>STT bytes sent</dt><dd>{{ lesson.stt_provider_audio_bytes_sent }}</dd>
+        <dt>STT last transcript</dt><dd>{{ lesson.stt_provider_last_transcript or "none" }}</dd>
+        <dt>STT error</dt><dd>{{ lesson.stt_provider_last_error or "none" }}</dd>
+        <dt>captions sent</dt><dd>{{ lesson.captions_sent }}</dd>
+        <dt>providers</dt><dd>{{ lesson.stt_provider }} / {{ lesson.translation_provider }}</dd>
+        <dt>video embed</dt><dd>{{ "mock" if lesson.mode == "mock" else "zoom meeting sdk" }}</dd>
+        <dt>student link</dt><dd><a href="/student/{{ lesson.lesson_id }}">Student page</a></dd>
+        <dt>transcript</dt><dd><a href="/lessons/{{ lesson.lesson_id }}/transcript">Transcript / exports</a></dd>
+        <dt>translator requests</dt><dd>{{ lesson.translation_requests_count }}</dd>
+        <dt>translator errors</dt><dd>{{ lesson.translation_errors_count }}</dd>
+        <dt>translator avg</dt><dd>{{ lesson.translation_avg_latency_ms }} ms</dd>
+        <dt>avg STT</dt><dd>{{ metrics.get(lesson.lesson_id, {}).get("stt", 0) }} ms</dd>
+        <dt>avg translation</dt><dd>{{ metrics.get(lesson.lesson_id, {}).get("translation", 0) }} ms</dd>
+        <dt>avg total</dt><dd>{{ metrics.get(lesson.lesson_id, {}).get("total", 0) }} ms</dd>
+      </dl>
+    </article>
+  {% else %}
+    <div class="empty">No active lessons.</div>
+  {% endfor %}
+</section>
+
+{% if settings.rtms_ui_enabled %}
+<section class="panel">
+  <h2>Experimental Zoom RTMS</h2>
+  <dl>
+    <dt>ui enabled</dt><dd>{{ settings.rtms_ui_enabled }}</dd>
+    <dt>experimental enabled</dt><dd>{{ settings.rtms_experimental_enabled }}</dd>
+    <dt>backend enabled</dt><dd>{{ settings.zoom_rtms_enabled }}</dd>
+  </dl>
+  <div class="caption-list">
+    {% for lesson in lessons %}
+      <div class="caption-item">
+        <strong>{{ lesson.lesson_id }}</strong>
+        <p>{{ lesson.rtms_status }} / chunks {{ lesson.audio_chunks_received }} / dropped {{ lesson.audio_chunks_dropped }}</p>
+        <p class="muted">{{ lesson.rtms_error or "no RTMS error" }}</p>
+      </div>
+    {% else %}
+      <p class="muted">No lessons yet.</p>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section class="split">
+  <article class="panel">
+    <h2>Latest captions</h2>
+    <div class="caption-list">
+      {% for item in transcripts %}
+        <div class="caption-item">
+          <strong>{{ item.lesson_id }}</strong>
+          <p>{{ item.original_text }}</p>
+        </div>
+      {% else %}
+        <p class="muted">No final captions yet.</p>
+      {% endfor %}
+    </div>
+  </article>
+  <article class="panel">
+    <h2>Errors</h2>
+    <div class="log">
+      {% for error in errors %}
+        <p>[{{ error.lesson_id }}] {{ error.message }}</p>
+      {% else %}
+        <p class="muted">No provider errors.</p>
+      {% endfor %}
+    </div>
+  </article>
+</section>
+{% endblock %}

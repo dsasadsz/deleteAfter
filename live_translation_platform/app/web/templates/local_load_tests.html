@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Local Virtual Lesson Load Test{% endblock %}
+{% block content %}
+<section class="toolbar compact">
+  <div>
+    <h1>Local Virtual Lesson Load Test</h1>
+    <p class="muted">Run async teacher and student bots against the local realtime translation stack. Real providers are used only when the selected mode and server config allow them.</p>
+  </div>
+  <div class="actions">
+    <button class="secondary" id="localLoadRefresh" type="button">Refresh</button>
+  </div>
+</section>
+
+<section class="split">
+  <article class="panel">
+    <h2>Start Run</h2>
+    <form id="localLoadForm">
+      <label class="field">Integration key
+        <input id="localLoadIntegrationKey" type="password" autocomplete="off" placeholder="required when configured">
+      </label>
+      <label class="field">Sessions
+        <select id="localLoadSessions">
+          <option value="1">1</option>
+          <option value="3" selected>3</option>
+          <option value="6">6</option>
+        </select>
+      </label>
+      <label class="field">Students per session
+        <input id="localLoadStudents" type="number" min="1" max="120" value="90">
+      </label>
+      <label class="field">Mode
+        <select id="localLoadMode">
+          <option value="light" selected>light</option>
+          <option value="real_pipeline">real_pipeline</option>
+          <option value="full">full</option>
+        </select>
+      </label>
+      <label class="field">Lesson audio WAV/MP3
+        <input id="localLoadAudio" type="file" accept=".wav,.mp3,audio/wav,audio/mpeg">
+      </label>
+      <label class="field">Reference RU text
+        <textarea id="localLoadReference" rows="5"></textarea>
+      </label>
+      <label class="field">Target languages
+        <input id="localLoadTargets" value="kk,uz,zh-Hans">
+      </label>
+      <label class="field">TTS languages
+        <input id="localLoadTtsLanguages" value="kk,zh-Hans">
+      </label>
+      <label class="field">TTS request ratio
+        <input id="localLoadTtsRatio" type="number" min="0" max="1" step="0.05" value="0.25">
+      </label>
+      <label class="field">Duration limit seconds
+        <input id="localLoadDuration" type="number" min="1" max="300" value="240">
+      </label>
+      <div class="actions">
+        <button class="primary" type="submit">Start</button>
+        <button class="danger" id="localLoadStop" type="button" disabled>Stop</button>
+      </div>
+    </form>
+  </article>
+
+  <article class="panel">
+    <h2>Live Status</h2>
+    <div class="dashboard-grid compact-grid">
+      <div class="metric-card"><span class="muted">Run</span><strong id="localLoadRunId">none</strong></div>
+      <div class="metric-card"><span class="muted">Status</span><strong id="localLoadStatus">idle</strong></div>
+      <div class="metric-card"><span class="muted">Connected</span><strong id="localLoadConnected">0</strong></div>
+      <div class="metric-card"><span class="muted">Captions</span><strong id="localLoadCaptions">0</strong></div>
+      <div class="metric-card"><span class="muted">p95 receive</span><strong id="localLoadP95">n/a</strong></div>
+      <div class="metric-card"><span class="muted">TTS hit ratio</span><strong id="localLoadTtsHit">n/a</strong></div>
+    </div>
+    <h3>Logs</h3>
+    <pre class="log" id="localLoadLogs">No run yet.</pre>
+  </article>
+</section>
+
+<section class="panel">
+  <h2>Reports</h2>
+  <div id="localLoadReportLinks" class="actions"></div>
+  <pre id="localLoadReportPreview">No report yet.</pre>
+</section>
+
+<section class="panel">
+  <h2>Recent Runs</h2>
+  <div class="caption-list" id="localLoadRuns">
+    {% for run in runs %}
+      <div class="caption-item"><strong>{{ run.run_id }}</strong><p>{{ run.status }} / {{ run.request.mode }} / {{ run.request.sessions }} x {{ run.request.students_per_session }}</p></div>
+    {% else %}
+      <p class="muted">No local virtual load tests yet.</p>
+    {% endfor %}
+  </div>
+</section>
+<div id="toast" class="toast" hidden></div>
+{% endblock %}
+{% block scripts %}<script src="/static/local_load_tests.js"></script>{% endblock %}

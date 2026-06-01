@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Stage 22 E2E Manual QA{% endblock %}
+{% block content %}
+<section class="toolbar compact">
+  <div>
+    <h1>Stage 22 E2E Manual QA</h1>
+    <p class="muted">Manual checklist and report flow for the complete teacher/student lesson scenario.</p>
+  </div>
+  <a class="button secondary" href="/e2e-test/report">E2E QA Report</a>
+</section>
+
+<section class="split">
+  <article class="panel">
+    <h2>Start QA Run</h2>
+    <form id="e2eQaForm">
+      <label class="field">Existing lesson
+        <select id="e2eLessonId" required>
+          {% for lesson in lessons %}
+          <option value="{{ lesson.lesson_id }}">{{ lesson.title }} / {{ lesson.lesson_id }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="field">Title <input id="e2eTitle" value="Stage 22 manual QA"></label>
+      <label class="field">STT provider <input id="e2eSttProvider" value="mock"></label>
+      <label class="field">Translator <input id="e2eTranslator" value="mock"></label>
+      <label class="field">TTS provider <input id="e2eTtsProvider" value="mock"></label>
+      <label class="field">TTS language <input id="e2eTtsLanguage" value="kk"></label>
+      <button class="primary" type="submit">Start E2E QA</button>
+    </form>
+  </article>
+
+  <article class="panel">
+    <h2>Manual Checklist</h2>
+    <ul>
+      <li>Zoom lesson created</li>
+      <li>Zoom video works</li>
+      <li>Teacher browser mic streams audio</li>
+      <li>Pipeline produces captions</li>
+      <li>Student sees translated captions and hears TTS</li>
+      <li>Zoom audio ducking/fallback works</li>
+      <li>Student text and voice questions reach teacher in Russian</li>
+      <li>Teacher can mark answered/dismiss</li>
+    </ul>
+    <div id="e2eRunActions" hidden>
+      <p id="e2eActiveRun"></p>
+      <a class="button secondary" id="e2eTeacherUrl" href="#" target="_blank">Open teacher page</a>
+      <a class="button secondary" id="e2eStudentUrl" href="#" target="_blank">Open student page</a>
+      <button class="secondary" id="e2eFinish" type="button">Finish QA run</button>
+    </div>
+  </article>
+</section>
+
+<section class="panel">
+  <h2>Recent E2E Runs</h2>
+  <div class="caption-list">
+    {% for run in runs %}
+      <div class="caption-item"><strong>{{ run.e2e_test_id }}</strong><p>{{ run.status }} / {{ run.stt_provider }} + {{ run.translation_provider }} / TTS {{ run.tts_provider }} {{ run.tts_language }}</p></div>
+    {% else %}
+      <p class="muted">No E2E QA runs yet.</p>
+    {% endfor %}
+  </div>
+</section>
+<div id="toast" class="toast" hidden></div>
+{% endblock %}
+{% block scripts %}<script src="/static/e2e_test.js"></script>{% endblock %}

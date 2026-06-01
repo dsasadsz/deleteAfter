@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}E2E QA Report{% endblock %}
+{% block content %}
+<section class="toolbar compact">
+  <div>
+    <h1>E2E QA Report</h1>
+    <p class="muted">Stage 22 checklist, latency, TTS, ducking, questions, and recommended defaults.</p>
+  </div>
+  <a class="button secondary" href="/e2e-test">Back to E2E QA</a>
+</section>
+
+<section class="panel">
+  <h2>Filters</h2>
+  <form method="get" class="grid-form">
+    <label class="field">lesson_id <input name="lesson_id" value="{{ filters.lesson_id }}"></label>
+    <button class="secondary" type="submit">Apply filters</button>
+  </form>
+</section>
+
+<section class="panel">
+  <h2>Recommended Defaults</h2>
+  {% if report.recommended_defaults %}
+  <pre>{{ report.recommended_defaults }}</pre>
+  {% else %}
+  <p class="muted">No completed all-pass E2E QA runs yet.</p>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2>Markdown/JSON Report</h2>
+  <pre>{{ report.markdown }}</pre>
+</section>
+
+<section class="panel">
+  <h2>Runs</h2>
+  <table>
+    <thead><tr><th>Run</th><th>Status</th><th>Lesson</th><th>Providers</th><th>TTS</th><th>Checklist</th></tr></thead>
+    <tbody>
+      {% for row in report.rows %}
+      <tr>
+        <td>{{ row.e2e_test_id }}</td>
+        <td>{{ row.status }}</td>
+        <td>{{ row.lesson_id or "n/a" }}</td>
+        <td>{{ row.stt_provider }} + {{ row.translation_provider }}</td>
+        <td>{{ row.tts_provider }} / {{ row.tts_language }}</td>
+        <td>{{ row.checklist.values() | selectattr("status", "equalto", "pass") | list | length }} / {{ row.checklist | length }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}
+{% block scripts %}<script src="/static/e2e_test_report.js"></script>{% endblock %}
